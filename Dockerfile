@@ -9,7 +9,7 @@ ENV PATH=${MY_INSTALL_DIR}/bin:${PATH}
 RUN mkdir -p ${MY_INSTALL_DIR}
 
 RUN apt update && apt install -y cmake
-RUN apt install -y build-essential autoconf libtool pkg-config
+RUN apt install -y build-essential autoconf libtool pkg-config git
 
 RUN git clone --recurse-submodules -b v1.58.0 --depth 1 --shallow-submodules \
     https://github.com/grpc/grpc
