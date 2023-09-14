@@ -34,4 +34,3 @@
 .local/
 .vscode/
 build/
-grpc/
