@@ -62,6 +62,7 @@ add_executable(my_grpc_server ${GRPC_SERVER})
 add_executable(my_grpc_client ${GRPC_CLIENT})
 
 # 方法1链接
+# 这里如果不链接my_grpc_proto会报错，如果链接my_grpc_proto时不加${_PROTO_SRCS} ${_PROTO_HDRS} ${_GRPC_SRCS} ${_GRPC_HDRS}也会报错
 # add_library(my_grpc_proto ${_PROTO_SRCS} ${_PROTO_HDRS} ${_GRPC_SRCS} ${_GRPC_HDRS})
 # target_link_libraries(my_grpc_proto protobuf::libprotobuf gRPC::grpc++ gRPC::grpc++_reflection)
 # target_link_libraries(my_grpc_server my_grpc_proto gRPC::grpc++ gRPC::grpc++_reflection protobuf::libprotobuf)
