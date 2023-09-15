@@ -57,19 +57,22 @@ add_custom_command(
     DEPENDS "${MY_PROTO}"
 )
 
-# # 将生成的 gRPC 的 C++ 代码添加到可执行文件中：
-# target_sources(my_grpc_server PRIVATE ${_PROTO_SRCS} ${_PROTO_HDRS} ${_GRPC_SRCS} ${_GRPC_HDRS})
-add_library(my_grpc_proto ${_PROTO_SRCS} ${_PROTO_HDRS} ${_GRPC_SRCS} ${_GRPC_HDRS})
-target_link_libraries(my_grpc_proto protobuf::libprotobuf gRPC::grpc++ gRPC::grpc++_reflection)
-
 # 添加 gRPC 和 Protobuf 的库：
 add_executable(my_grpc_server ${GRPC_SERVER})
 add_executable(my_grpc_client ${GRPC_CLIENT})
-# target_link_libraries(my_grpc_server my_grpc_proto ${_REFLECTION} ${_GRPC_GRPCPP} ${_PROTOBUF_LIBPROTOBUF})
-# target_link_libraries(my_grpc_client my_grpc_proto ${_REFLECTION} ${_GRPC_GRPCPP} ${_PROTOBUF_LIBPROTOBUF})
 
-target_link_libraries(my_grpc_server my_grpc_proto gRPC::grpc++ gRPC::grpc++_reflection protobuf::libprotobuf)
-target_link_libraries(my_grpc_client my_grpc_proto gRPC::grpc++ gRPC::grpc++_reflection protobuf::libprotobuf)
+# 方法1链接
+# add_library(my_grpc_proto ${_PROTO_SRCS} ${_PROTO_HDRS} ${_GRPC_SRCS} ${_GRPC_HDRS})
+# target_link_libraries(my_grpc_proto protobuf::libprotobuf gRPC::grpc++ gRPC::grpc++_reflection)
+# target_link_libraries(my_grpc_server my_grpc_proto gRPC::grpc++ gRPC::grpc++_reflection protobuf::libprotobuf)
+# target_link_libraries(my_grpc_client my_grpc_proto gRPC::grpc++ gRPC::grpc++_reflection protobuf::libprotobuf)
+
+# 方法2链接
+# 将生成的 gRPC 的 C++ 代码添加到可执行文件中：
+target_sources(my_grpc_server PRIVATE ${_PROTO_SRCS} ${_PROTO_HDRS} ${_GRPC_SRCS} ${_GRPC_HDRS})
+target_sources(my_grpc_client PRIVATE ${_PROTO_SRCS} ${_PROTO_HDRS} ${_GRPC_SRCS} ${_GRPC_HDRS})
+target_link_libraries(my_grpc_server gRPC::grpc++ gRPC::grpc++_reflection protobuf::libprotobuf)
+target_link_libraries(my_grpc_client gRPC::grpc++ gRPC::grpc++_reflection protobuf::libprotobuf)
 
 # 只编译生成proto文件
 add_custom_target(proto DEPENDS ${_PROTO_SRCS} ${_PROTO_HDRS} ${_GRPC_SRCS} ${_GRPC_HDRS})
