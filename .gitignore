@@ -34,3 +34,4 @@
 .local/
 .vscode/
 build/
+/third_party/
