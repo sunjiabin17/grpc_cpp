@@ -5,9 +5,10 @@ WORKDIR /gprc_service
 
 COPY src/ include/ scripts/ ./
 
-ENV MY_INSTALL_DIR=${WORKDIR}/.local
-ENV PATH=${MY_INSTALL_DIR}/bin:${PATH}
-RUN mkdir -p ${MY_INSTALL_DIR}
+ENV GRPC_INSTALL_DIR=${WORKDIR}/third_party/grpc_lib
+ENV GRPC_DIR=${WORKDIR}/third_party/grpc
+ENV PATH=${GRPC_INSTALL_DIR}/bin:${PATH}
+RUN mkdir -p ${GRPC_INSTALL_DIR} && mkdir -p ${GRPC_DIR}
 
 RUN apt update && apt install -y cmake
 RUN apt install -y build-essential autoconf libtool pkg-config git
@@ -15,17 +16,15 @@ RUN apt install -y build-essential autoconf libtool pkg-config git
 # host proxy address
 RUN git config --global http.proxy "socks://127.0.0.1:10808"
 
-# RUN ./xray/xray -config ./xray/config.json & 
 RUN git clone --recurse-submodules -b v1.58.0 --depth 1 --shallow-submodules \
-        https://github.com/grpc/grpc
-# COPY grpc/ ./grpc
+        https://github.com/grpc/grpc ${GRPC_DIR}
 
-RUN /bin/bash -c "cd grpc && \
+RUN /bin/bash -c "cd ${GRPC_DIR} && \
     mkdir -p cmake/build && \
     pushd cmake/build && \
     cmake -DgRPC_INSTALL=ON \
         -DgRPC_BUILD_TESTS=OFF \
-        -DCMAKE_INSTALL_PREFIX=${MY_INSTALL_DIR} \
+        -DCMAKE_INSTALL_PREFIX=${GRPC_INSTALL_DIR} \
         ../.. && \
     make -j4 && \
     make install && \
