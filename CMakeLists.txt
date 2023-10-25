@@ -26,8 +26,8 @@ include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
 # 查找全部.cc 文件：
 # file(GLOB_RECURSE SRCS src/*.cc)
-set(GRPC_SERVER src/grpc/server/grpc_server.cc)
-set(GRPC_CLIENT src/grpc/client/grpc_client.cc)
+set(GRPC_SERVER src/server/grpc_server.cc)
+set(GRPC_CLIENT src/client/grpc_client.cc)
 
 # 查找全部.h 文件：
 set(GRPC_SERVER_HEADERS src/grpc/server)
@@ -78,6 +78,14 @@ target_sources(grpc_server PRIVATE ${_PROTO_SRCS} ${_PROTO_HDRS} ${_GRPC_SRCS} $
 target_sources(grpc_client PRIVATE ${_PROTO_SRCS} ${_PROTO_HDRS} ${_GRPC_SRCS} ${_GRPC_HDRS})
 target_link_libraries(grpc_server gRPC::grpc++ gRPC::grpc++_reflection protobuf::libprotobuf)
 target_link_libraries(grpc_client gRPC::grpc++ gRPC::grpc++_reflection protobuf::libprotobuf)
+
+
+add_executable(grpc_async_server ${GRPC_SERVER})
+add_executable(grpc_async_client ${GRPC_CLIENT})
+target_sources(grpc_async_server PRIVATE ${_PROTO_SRCS} ${_PROTO_HDRS} ${_GRPC_SRCS} ${_GRPC_HDRS})
+target_sources(grpc_async_client PRIVATE ${_PROTO_SRCS} ${_PROTO_HDRS} ${_GRPC_SRCS} ${_GRPC_HDRS})
+target_link_libraries(grpc_async_server gRPC::grpc++ gRPC::grpc++_reflection protobuf::libprotobuf)
+target_link_libraries(grpc_async_client gRPC::grpc++ gRPC::grpc++_reflection protobuf::libprotobuf)
 
 # 只编译生成proto文件
 add_custom_target(proto DEPENDS ${_PROTO_SRCS} ${_PROTO_HDRS} ${_GRPC_SRCS} ${_GRPC_HDRS})
