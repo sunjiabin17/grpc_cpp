@@ -3,6 +3,8 @@
 cmake_minimum_required(VERSION 3.8)
 
 project(GrpcTest C CXX)
+# set debug mode
+set(CMAKE_BUILD_TYPE "Debug")
 
 # 设置C++标准
 set(CMAKE_CXX_STANDARD 11)
@@ -28,6 +30,9 @@ include_directories(${CMAKE_CURRENT_BINARY_DIR})
 # file(GLOB_RECURSE SRCS src/*.cc)
 set(GRPC_SERVER src/server/grpc_server.cc)
 set(GRPC_CLIENT src/client/grpc_client.cc)
+
+set(GRPC_ASYNC_SERVER src/server/grpc_async_server.cc)
+set(GRPC_ASYNC_CLIENT src/client/grpc_async_client.cc)
 
 # 查找全部.h 文件：
 set(GRPC_SERVER_HEADERS src/grpc/server)
@@ -61,27 +66,27 @@ add_custom_command(
     DEPENDS "${MY_PROTO}"
 )
 
-# 添加 gRPC 和 Protobuf 的库：
-add_executable(grpc_server ${GRPC_SERVER})
-add_executable(grpc_client ${GRPC_CLIENT})
+# # 添加 gRPC 和 Protobuf 的库：
+# add_executable(grpc_server ${GRPC_SERVER})
+# add_executable(grpc_client ${GRPC_CLIENT})
 
-# 方法1链接
-# 这里如果不链接my_grpc_proto会报错，如果链接my_grpc_proto时不加${_PROTO_SRCS} ${_PROTO_HDRS} ${_GRPC_SRCS} ${_GRPC_HDRS}也会报错
-# add_library(my_grpc_proto ${_PROTO_SRCS} ${_PROTO_HDRS} ${_GRPC_SRCS} ${_GRPC_HDRS})
-# target_link_libraries(my_grpc_proto protobuf::libprotobuf gRPC::grpc++ gRPC::grpc++_reflection)
-# target_link_libraries(grpc_server my_grpc_proto gRPC::grpc++ gRPC::grpc++_reflection protobuf::libprotobuf)
-# target_link_libraries(grpc_client my_grpc_proto gRPC::grpc++ gRPC::grpc++_reflection protobuf::libprotobuf)
+# # 方法1链接
+# # 这里如果不链接my_grpc_proto会报错，如果链接my_grpc_proto时不加${_PROTO_SRCS} ${_PROTO_HDRS} ${_GRPC_SRCS} ${_GRPC_HDRS}也会报错
+# # add_library(my_grpc_proto ${_PROTO_SRCS} ${_PROTO_HDRS} ${_GRPC_SRCS} ${_GRPC_HDRS})
+# # target_link_libraries(my_grpc_proto protobuf::libprotobuf gRPC::grpc++ gRPC::grpc++_reflection)
+# # target_link_libraries(grpc_server my_grpc_proto gRPC::grpc++ gRPC::grpc++_reflection protobuf::libprotobuf)
+# # target_link_libraries(grpc_client my_grpc_proto gRPC::grpc++ gRPC::grpc++_reflection protobuf::libprotobuf)
 
-# 方法2链接
-# 将生成的 gRPC 的 C++ 代码添加到可执行文件中：
-target_sources(grpc_server PRIVATE ${_PROTO_SRCS} ${_PROTO_HDRS} ${_GRPC_SRCS} ${_GRPC_HDRS})
-target_sources(grpc_client PRIVATE ${_PROTO_SRCS} ${_PROTO_HDRS} ${_GRPC_SRCS} ${_GRPC_HDRS})
-target_link_libraries(grpc_server gRPC::grpc++ gRPC::grpc++_reflection protobuf::libprotobuf)
-target_link_libraries(grpc_client gRPC::grpc++ gRPC::grpc++_reflection protobuf::libprotobuf)
+# # 方法2链接
+# # 将生成的 gRPC 的 C++ 代码添加到可执行文件中：
+# target_sources(grpc_server PRIVATE ${_PROTO_SRCS} ${_PROTO_HDRS} ${_GRPC_SRCS} ${_GRPC_HDRS})
+# target_sources(grpc_client PRIVATE ${_PROTO_SRCS} ${_PROTO_HDRS} ${_GRPC_SRCS} ${_GRPC_HDRS})
+# target_link_libraries(grpc_server gRPC::grpc++ gRPC::grpc++_reflection protobuf::libprotobuf)
+# target_link_libraries(grpc_client gRPC::grpc++ gRPC::grpc++_reflection protobuf::libprotobuf)
 
 
-add_executable(grpc_async_server ${GRPC_SERVER})
-add_executable(grpc_async_client ${GRPC_CLIENT})
+add_executable(grpc_async_server ${GRPC_ASYNC_SERVER})
+add_executable(grpc_async_client ${GRPC_ASYNC_CLIENT})
 target_sources(grpc_async_server PRIVATE ${_PROTO_SRCS} ${_PROTO_HDRS} ${_GRPC_SRCS} ${_GRPC_HDRS})
 target_sources(grpc_async_client PRIVATE ${_PROTO_SRCS} ${_PROTO_HDRS} ${_GRPC_SRCS} ${_GRPC_HDRS})
 target_link_libraries(grpc_async_server gRPC::grpc++ gRPC::grpc++_reflection protobuf::libprotobuf)

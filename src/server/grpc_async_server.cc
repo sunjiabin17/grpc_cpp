@@ -24,9 +24,8 @@
 #include <grpc/support/log.h>
 #include <grpcpp/grpcpp.h>
 
-#include "grpc_service.pb.h"
 #include "grpc_service.grpc.pb.h"
-
+#include "grpc_service.pb.h"
 
 using grpc::Server;
 using grpc::ServerAsyncResponseWriter;
@@ -35,12 +34,74 @@ using grpc::ServerCompletionQueue;
 using grpc::ServerContext;
 using grpc::Status;
 
-using grpc_service::Request;
-using grpc_service::Response;
-using grpc_service::InferenceService;
+using grpc_service::HelloRequest;
+using grpc_service::HelloResponse;
+using grpc_service::TestService;
+
+using grpc_service::HealthCheckRequest;
+using grpc_service::HealthCheckResponse;
+
+using grpc_service::MetaRequest;
+using grpc_service::MetaResponse;
+
+class ICallData {
+public:
+  virtual ~ICallData() = default;
+  virtual void Proceed() = 0;
+};
+
+template <typename ResponderType, typename RequestType, typename ResponseType>
+class CallData : public ICallData {
+public:
+  using ResigterFunc = std::function<void(ServerContext *, RequestType *,
+                                          ResponderType *, void *)>;
+  using ProcessFunc =
+      std::function<void(RequestType *, ResponseType *, Status *)>;
+
+  CallData(TestService::AsyncService *service, ServerCompletionQueue *cq,
+           const ResigterFunc register_func, const ProcessFunc process_func)
+      : service_(service), cq_(cq), register_func_(register_func),
+        process_func_(process_func), responder_(&ctx_), step_(CREATE) {
+    register_func_(&ctx_, &request_, &responder_, this);
+    step_ = PROCESS;
+  }
+
+  void Proceed() override {
+    if (step_ == CREATE) {
+      // do nothing
+    } else if (step_ == PROCESS) {
+      new CallData<ResponderType, RequestType, ResponseType>(
+          service_, cq_, register_func_, process_func_);
+
+      process_func_(&request_, &response_, &status_);
+      // std::string prefix("Hello ");
+      // response_.set_message(prefix + request_.name());
+      step_ = FINISH;
+      responder_.Finish(response_, status_, this);
+    } else {
+      GPR_ASSERT(step_ == FINISH);
+      delete this;
+    }
+  }
+
+private:
+  ResponderType responder_;
+  RequestType request_;
+  ResponseType response_;
+
+  ResigterFunc register_func_;
+  ProcessFunc process_func_;
+  TestService::AsyncService *service_;
+  ServerCompletionQueue *cq_;
+  ServerContext ctx_;
+  enum CallStep { CREATE, PROCESS, FINISH };
+  CallStep step_;
+
+  Status status_;
+};
 
 class ServerImpl final {
- public:
+public:
   ~ServerImpl() {
     server_->Shutdown();
     // Always shutdown the completion queue after the server.
@@ -68,82 +129,79 @@ class ServerImpl final {
     HandleRpcs();
   }
 
- private:
-  // Class encompasing the state and logic needed to serve a request.
-  class CallData {
-   public:
-    // Take in the "service" instance (in this case representing an asynchronous
-    // server) and the completion queue "cq" used for asynchronous communication
-    // with the gRPC runtime.
-    CallData(InferenceService::AsyncService* service, ServerCompletionQueue* cq)
-        : service_(service), cq_(cq), responder_(&ctx_), status_(CREATE) {
-      // Invoke the serving logic right away.
-      Proceed();
-    }
+private:
+  void RegisterSayHello() {
+    auto OnRegisterSayHello =
+        [this](ServerContext *ctx, HelloRequest *request,
+               ServerAsyncResponseWriter<HelloResponse> *responder, void *tag) {
+          this->service_.RequestSayHello(ctx, request, responder,
+                                         this->cq_.get(), this->cq_.get(), tag);
+        };
 
-    void Proceed() {
-      if (status_ == CREATE) {
-        // Make this instance progress to the PROCESS state.
-        status_ = PROCESS;
+    auto OnProcessSayHello = [](HelloRequest *request, HelloResponse *response,
+                                Status *status) {
+      std::string prefix("Hello ");
+      response->set_message(prefix + request->name());
+      *status = Status::OK;
+    };
 
-        // As part of the initial CREATE state, we *request* that the system
-        // start processing SayHello requests. In this request, "this" acts are
-        // the tag uniquely identifying the request (so that different CallData
-        // instances can serve different requests concurrently), in this case
-        // the memory address of this CallData instance.
-        service_->RequestGetImgClsResult(&ctx_, &request_, &responder_, cq_, cq_,
-                                  this);
-      } else if (status_ == PROCESS) {
-        // Spawn a new CallData instance to serve new clients while we process
-        // the one for this CallData. The instance will deallocate itself as
-        // part of its FINISH state.
-        new CallData(service_, cq_);
+    new CallData<ServerAsyncResponseWriter<HelloResponse>, HelloRequest,
+                 HelloResponse>(&service_, cq_.get(), OnRegisterSayHello,
+                                OnProcessSayHello);
+  }
 
-        // The actual processing.
-        std::string prefix("Hello ");
-        reply_.set_message(prefix + request_.name());
+  void RegisterHealthCheck() {
+    auto OnRegisterHealthCheck =
+        [this](ServerContext *ctx, HealthCheckRequest *request,
+               ServerAsyncResponseWriter<HealthCheckResponse> *responder,
+               void *tag) {
+          this->service_.RequestHealthCheck(
+              ctx, request, responder, this->cq_.get(), this->cq_.get(), tag);
+        };
 
-        // And we are done! Let the gRPC runtime know we've finished, using the
-        // memory address of this instance as the uniquely identifying tag for
-        // the event.
-        status_ = FINISH;
-        responder_.Finish(reply_, Status::OK, this);
-      } else {
-        GPR_ASSERT(status_ == FINISH);
-        // Once in the FINISH state, deallocate ourselves (CallData).
-        delete this;
-      }
-    }
+    auto OnProcessHealthCheck = [](HealthCheckRequest *request,
+                                   HealthCheckResponse *response,
+                                   Status *status) {
+      std::string prefix(request->service());
+      response->set_status(prefix + " is ok");
+      *status = Status::OK;
+    };
 
-   private:
-    // The means of communication with the gRPC runtime for an asynchronous
-    // server.
-    InferenceService::AsyncService* service_;
-    // The producer-consumer queue where for asynchronous server notifications.
-    ServerCompletionQueue* cq_;
-    // Context for the rpc, allowing to tweak aspects of it such as the use
-    // of compression, authentication, as well as to send metadata back to the
-    // client.
-    ServerContext ctx_;
+    new CallData<ServerAsyncResponseWriter<HealthCheckResponse>,
+                 HealthCheckRequest, HealthCheckResponse>(
+        &service_, cq_.get(), OnRegisterHealthCheck, OnProcessHealthCheck);
+  }
 
-    // What we get from the client.
-    Request request_;
-    // What we send back to the client.
-    Response reply_;
+  void RegisterMeta() {
+    auto OnRegisterMeta =
+        [this](ServerContext *ctx, MetaRequest *request,
+               ServerAsyncResponseWriter<MetaResponse> *responder, void *tag) {
+          this->service_.RequestGetMetaData(
+              ctx, request, responder, this->cq_.get(), this->cq_.get(), tag);
+        };
 
-    // The means to get back to the client.
-    ServerAsyncResponseWriter<Response> responder_;
+    auto OnProcessMeta = [](MetaRequest *request, MetaResponse *response,
+                            Status *status) {
+      std::string prefix(request->key() + ": " + request->value());
+      response->add_data(prefix + '1');
+      response->add_data(prefix + '2');
+      response->add_data(prefix + '3');
+      *status = Status::OK;
+    };
 
-    // Let's implement a tiny state machine with the following states.
-    enum CallStatus { CREATE, PROCESS, FINISH };
-    CallStatus status_;  // The current serving state.
-  };
+    new CallData<ServerAsyncResponseWriter<MetaResponse>, MetaRequest,
+                 MetaResponse>(&service_, cq_.get(), OnRegisterMeta,
+                               OnProcessMeta);
+  }
 
   // This can be run in multiple threads if needed.
   void HandleRpcs() {
     // Spawn a new CallData instance to serve new clients.
-    new CallData(&service_, cq_.get());
-    void* tag;  // uniquely identifies a request.
+    RegisterSayHello();
+    RegisterHealthCheck();
+    RegisterMeta();
+
+    void *tag; // uniquely identifies a HelloRequest.
     bool ok;
     while (true) {
       // Block waiting to read the next event from the completion queue. The
@@ -153,16 +211,17 @@ class ServerImpl final {
       // tells us whether there is any kind of event or cq_ is shutting down.
       GPR_ASSERT(cq_->Next(&tag, &ok));
       GPR_ASSERT(ok);
-      static_cast<CallData*>(tag)->Proceed();
+      ICallData *call_data = static_cast<ICallData *>(tag);
+      call_data->Proceed();
     }
   }
 
   std::unique_ptr<ServerCompletionQueue> cq_;
-  InferenceService::AsyncService service_;
+  TestService::AsyncService service_;
   std::unique_ptr<Server> server_;
 };
 
-int main(int argc, char** argv) {
+int main(int argc, char **argv) {
   ServerImpl server;
   server.Run(50051);
 
